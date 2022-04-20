@@ -1,0 +1,16 @@
+{
+  "domain": "hassiform",
+  "name": "HASSiform",
+  "config_flow": false,
+  "documentation": "https://www.home-assistant.io/integrations/hassiform",
+  "requirements": [],
+  "ssdp": [],
+  "zeroconf": [],
+  "homekit": {},
+  "dependencies": [],
+  "codeowners": [
+    "@insertjokehere"
+  ],
+  "iot_class": "assumed_state",
+  "version": "0.0.0"
+}
