@@ -13,6 +13,26 @@ from homeassistant.helpers.storage import Store
 
 from .const import DOMAIN
 
+CONFIG_SCHEMA = vol.Schema(
+    {
+        DOMAIN: vol.Schema(
+            {
+                "platforms": [
+                    vol.Schema(
+                        {
+                            vol.Required("platform"): str,
+                            vol.Required("configuration_id"): str,
+                            vol.Required("data"): dict,
+                            "options": dict,
+                        }
+                    )
+                ],
+            }
+        )
+    },
+    extra=vol.ALLOW_EXTRA,
+)
+
 _LOGGER = logging.getLogger(__name__)
 
 
@@ -71,6 +91,7 @@ class ManagedPlatformConfig:
                     )
 
                 if "result" not in result:
+                    last_schema = result["data_schema"]
                     try:
                         result = await flow_manager.async_configure(
                             flow_id,
@@ -78,7 +99,7 @@ class ManagedPlatformConfig:
                         )
                     except vol.Error as e:
                         raise FlowError(
-                            message=f"Schema error while updating component {self.platform} - {e}",
+                            message=f"Schema error while updating component {self.platform} - {e}. Check that your configuration can match {last_schema}",
                         ) from e
                 else:
                     break
