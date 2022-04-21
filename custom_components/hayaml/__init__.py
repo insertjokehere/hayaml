@@ -1,14 +1,18 @@
 """The hayaml integration."""
 from __future__ import annotations
+
 import logging
 from typing import List
 
 import voluptuous as vol
-
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import EVENT_HOMEASSISTANT_STARTED
 from homeassistant.core import CoreState, HomeAssistant
-from homeassistant.data_entry_flow import FlowManager, UnknownFlow, UnknownHandler
+from homeassistant.data_entry_flow import (
+    FlowManager,
+    UnknownFlow,
+    UnknownHandler,
+)
 from homeassistant.helpers.storage import Store
 
 from .const import DOMAIN
@@ -90,10 +94,7 @@ class ManagedPlatformConfig:
                         f"Flow returned errors while updating component {self.platform} - {result['errors']}"
                     )
 
-                if (
-                    result.get("type") == "abort"
-                    and result.get("reason") == "already_configured"
-                ):
+                if result.get("type") == "abort" and result.get("reason") == "already_configured":
                     raise AlreadyConfigured(
                         f"Integration {self.platform} already configured for given parameters, but not present in lock file"
                     )
@@ -136,25 +137,19 @@ class ManagedPlatformConfig:
 
         if self.entry_id is None:
             _LOGGER.info("Creating entry %s", self.entry_id)
-            result = await self.setup_platform(
-                config_entries.flow, self.platform, self.desired_config
-            )
+            result = await self.setup_platform(config_entries.flow, self.platform, self.desired_config)
             self.entry_id = result.entry_id
 
         elif self.desired_config != self.last_config:
             _LOGGER.info("Recreating entry %s", self.entry_id)
             await self.delete_platform()
-            result = await self.setup_platform(
-                config_entries.flow, self.platform, self.desired_config
-            )
+            result = await self.setup_platform(config_entries.flow, self.platform, self.desired_config)
             self.entry_id = result.entry_id
 
         self.last_config = self.desired_config
         if self.options:
             try:
-                await self.setup_platform(
-                    config_entries.options, self.entry_id, self.options
-                )
+                await self.setup_platform(config_entries.options, self.entry_id, self.options)
             except UnknownHandler as _:
                 _LOGGER.warning("Platform %s does not support options", self.platform)
 
@@ -203,9 +198,7 @@ async def async_setup(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
         for platform in entry[DOMAIN].get("platforms", []):
             try:
-                managed_platform = lock_file.for_configuration_id(
-                    platform["configuration_id"]
-                )
+                managed_platform = lock_file.for_configuration_id(platform["configuration_id"])
             except KeyError:
                 managed_platform = ManagedPlatformConfig(
                     hass,
