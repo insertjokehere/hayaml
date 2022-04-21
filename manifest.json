@@ -1,8 +1,8 @@
 {
-  "domain": "hassiform",
-  "name": "HASSiform",
+  "domain": "hayaml",
+  "name": "hayaml",
   "config_flow": false,
-  "documentation": "https://www.home-assistant.io/integrations/hassiform",
+  "documentation": "https://www.home-assistant.io/integrations/hayaml",
   "requirements": [],
   "ssdp": [],
   "zeroconf": [],

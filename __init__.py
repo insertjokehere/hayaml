@@ -1,4 +1,4 @@
-"""The HASSiform integration."""
+"""The hayaml integration."""
 from __future__ import annotations
 import logging
 from typing import List
@@ -8,7 +8,7 @@ import voluptuous as vol
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import EVENT_HOMEASSISTANT_STARTED
 from homeassistant.core import CoreState, HomeAssistant
-from homeassistant.data_entry_flow import FlowManager, UnknownHandler
+from homeassistant.data_entry_flow import FlowManager, UnknownFlow, UnknownHandler
 from homeassistant.helpers.storage import Store
 
 from .const import DOMAIN
@@ -37,11 +37,11 @@ _LOGGER = logging.getLogger(__name__)
 
 
 class FlowError(Exception):
-    def __init__(self, message):
-        self.message = message
+    pass
 
-    def __str__(self):
-        return self.message
+
+class AlreadyConfigured(FlowError):
+    pass
 
 
 def data_for_schema(schema, answers):
@@ -57,13 +57,13 @@ class ManagedPlatformConfig:
         self,
         hass: HomeAssistant,
         platform,
-        entity_id=None,
+        entry_id=None,
         configuration_id=None,
         last_config=None,
         options=None,
     ):
         self.hass = hass
-        self.entity_id = entity_id  # The entity ID that HASS knows this config by. None if it hasn't been set up yet
+        self.entry_id = entry_id  # The entry ID that HASS knows this config by. None if it hasn't been set up yet
         self.configuration_id = configuration_id  # The ID in the configuration file, so we can track what platforms the user wants us to add/remove/reconfigure
         self.last_config = last_config  # The last configuration we applied
         self.platform = platform  # Name of the platform
@@ -73,7 +73,7 @@ class ManagedPlatformConfig:
     def save(self):
         return {
             "platform": self.platform,
-            "entity_id": self.entity_id,
+            "entry_id": self.entry_id,
             "configuration_id": self.configuration_id,
             "last_config": self.last_config,
             "options": self.options,
@@ -90,6 +90,14 @@ class ManagedPlatformConfig:
                         f"Flow returned errors while updating component {self.platform} - {result['errors']}"
                     )
 
+                if (
+                    result.get("type") == "abort"
+                    and result.get("reason") == "already_configured"
+                ):
+                    raise AlreadyConfigured(
+                        f"Integration {self.platform} already configured for given parameters, but not present in lock file"
+                    )
+
                 if "result" not in result:
                     last_schema = result["data_schema"]
                     try:
@@ -99,50 +107,53 @@ class ManagedPlatformConfig:
                         )
                     except vol.Error as e:
                         raise FlowError(
-                            message=f"Schema error while updating component {self.platform} - {e}. Check that your configuration can match {last_schema}",
+                            f"Schema error while updating component {self.platform} - {e}. Check that your configuration can match {last_schema}",
                         ) from e
                 else:
                     break
 
         except FlowError:
-            flow_manager.async_abort(flow_id)
+            try:
+                flow_manager.async_abort(flow_id)
+            except UnknownFlow:
+                pass
             raise
 
         return result["result"]
 
     async def delete_platform(self):
-        await self.hass.config_entries.async_remove(self.entity_id)
+        await self.hass.config_entries.async_remove(self.entry_id)
 
     async def configure(self):
         config_entries = self.hass.config_entries
         if self.desired_config is None:
-            _LOGGER.info("Removing entry %s", self.entity_id)
+            _LOGGER.info("Removing entry %s", self.entry_id)
             await self.delete_platform()
             return
 
-        if config_entries.async_get_entry(self.entity_id) is None:
-            self.entity_id = None
+        if config_entries.async_get_entry(self.entry_id) is None:
+            self.entry_id = None
 
-        if self.entity_id is None:
-            _LOGGER.info("Creating entry %s", self.entity_id)
+        if self.entry_id is None:
+            _LOGGER.info("Creating entry %s", self.entry_id)
             result = await self.setup_platform(
                 config_entries.flow, self.platform, self.desired_config
             )
-            self.entity_id = result.entry_id
+            self.entry_id = result.entry_id
 
         elif self.desired_config != self.last_config:
-            _LOGGER.info("Recreating entry %s", self.entity_id)
+            _LOGGER.info("Recreating entry %s", self.entry_id)
             await self.delete_platform()
             result = await self.setup_platform(
                 config_entries.flow, self.platform, self.desired_config
             )
-            self.entity_id = result.entry_id
+            self.entry_id = result.entry_id
 
         self.last_config = self.desired_config
         if self.options:
             try:
                 await self.setup_platform(
-                    config_entries.options, self.entity_id, self.options
+                    config_entries.options, self.entry_id, self.options
                 )
             except UnknownHandler as _:
                 _LOGGER.warning("Platform %s does not support options", self.platform)
@@ -151,7 +162,7 @@ class ManagedPlatformConfig:
 class LockFile:
     def __init__(self, hass: HomeAssistant) -> None:
         self.hass = hass
-        self.store = Store(hass, 1, "hassiform", private=True)
+        self.store = Store(hass, 1, f"{DOMAIN}-lock", private=True)
         self.entries = []  # type: List[ManagedPlatformConfig]
 
     async def async_load(self):
@@ -165,16 +176,16 @@ class LockFile:
     async def async_save(self):
         data = []
         for entry in self.entries:
-            if entry.desired_config is not None and entry.entity_id is not None:
+            if entry.desired_config is not None and entry.entry_id is not None:
                 data.append(entry.save())
         await self.store.async_save(data)
 
-    def for_entity_id(self, entity_id):
+    def for_entry_id(self, entry_id):
         for entry in self.entries:
-            if entry.entity_id == entity_id:
+            if entry.entry_id == entry_id:
                 return entry
 
-        raise KeyError(entity_id)
+        raise KeyError(entry_id)
 
     def for_configuration_id(self, configuration_id):
         for entry in self.entries:
@@ -185,10 +196,6 @@ class LockFile:
 
 
 async def async_setup(hass: HomeAssistant, entry: ConfigEntry) -> bool:
-    """Set up HASSiform from a config entry."""
-    # TODO Store an API object for your platforms to access
-    # hass.data[DOMAIN][entry.entry_id] = MyApi(...)
-
     async def configure(_):
 
         lock_file = LockFile(hass)
