@@ -19,10 +19,10 @@ Add the component to your `custom_components` directory, then add to your `confi
 
 ```
 hayaml:
-  platforms:
+  integrations:
     - platform: ...
       configuration_id: ...
-      data:
+      answers:
         ...
       options:
         ...
@@ -30,15 +30,15 @@ hayaml:
 
 | key | type | description |
 | --- | ---- | ---- |
-| `platforms` | List of [platform](#platform) | List of platforms to configure |
+| `integrations` | List of [integration](#integration) | List of integrations to configure |
 
-### <a name="platform"></a>platform definitions
+### <a name="integration"></a>`integration` objects
 
 | key | type | description |
 | --- | --- | --- |
 | `platform` | string | Platform to configure, eg `unifi`, `broadlink`. Required. |
 | `configuration_id` | string | A unique ID used to keep track of which configurations were added or removed. Doesn't matter what it is, as long as it is unique. Required. |
-| `data` | dict | Answers to provide when setting up the configuration. If these change, the integration will be removed and recreated with the new options. See [below](#answers) for tips on figuring out the required values for your integration. Required. |
+| `answers` | dict | Answers to provide when setting up the configuration. If these change, the integration will be removed and recreated with the new options. See [below](#answers) for tips on figuring out the required values for your integration. Required. |
 | `options` | dict | Some integrations allow you to adjust some settings after they are set up (the "Configure" button on the integration list) - set the desired values for these options here. Any value not set will be left unchanged. Optional. |
 
 Hayaml keeps track of which `configuration_id`s it has already created, and what answers were provided when it did so. Once Home Assistant has started, hayaml will check each platform definition in turn and:
@@ -53,7 +53,7 @@ Each integration requires a different set of `answers`, and supports different `
 
 #### Read the code
 
-The flows for setting up an integration are defined in the `config_flow.py` file for the component. Look for a class that subclasses `ConfigFlow`, and find its `async_step_user` function. `async_step_user` will make calls to `async_show_form` (possibly via other functions) with a schema to ask for input from the user. Keep in mind that the setup process might involve multiple steps - find the schema for each step and merge the fields together to come up with the complete list of answers to provide.
+The rules for setting up an integration are defined in the `config_flow.py` file for the component. Look for a class that subclasses `ConfigFlow`, and find its `async_step_user` function. `async_step_user` will make calls to `async_show_form` (possibly via other functions) with a schema to ask for input from the user. Keep in mind that the setup process might involve multiple steps - find the schema for each step and merge the fields together to come up with the complete list of answers to provide.
 
 Options can be found in a similar process by looking for a class that subclasses `OptionsFlow`, and following the logic from its `async_step_init` function.
 

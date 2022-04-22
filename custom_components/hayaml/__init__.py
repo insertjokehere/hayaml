@@ -15,19 +15,26 @@ from homeassistant.data_entry_flow import (
 )
 from homeassistant.helpers.storage import Store
 
-from .const import DOMAIN
+from .const import (
+    CONF_ANSWERS,
+    CONF_CONFIG_ID,
+    CONF_INTEGRATIONS,
+    CONF_OPTIONS,
+    CONF_PLATFORM,
+    DOMAIN,
+)
 
 CONFIG_SCHEMA = vol.Schema(
     {
         DOMAIN: vol.Schema(
             {
-                "platforms": [
+                CONF_INTEGRATIONS: [
                     vol.Schema(
                         {
-                            vol.Required("platform"): str,
-                            vol.Required("configuration_id"): str,
-                            vol.Required("data"): dict,
-                            "options": dict,
+                            vol.Required(CONF_PLATFORM): str,
+                            vol.Required(CONF_CONFIG_ID): str,
+                            vol.Required(CONF_ANSWERS): dict,
+                            CONF_OPTIONS: dict,
                         }
                     )
                 ],
@@ -196,19 +203,19 @@ async def async_setup(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         lock_file = LockFile(hass)
         await lock_file.async_load()
 
-        for platform in entry[DOMAIN].get("platforms", []):
+        for platform in entry[DOMAIN].get(CONF_INTEGRATIONS, []):
             try:
-                managed_platform = lock_file.for_configuration_id(platform["configuration_id"])
+                managed_platform = lock_file.for_configuration_id(platform[CONF_CONFIG_ID])
             except KeyError:
                 managed_platform = ManagedPlatformConfig(
                     hass,
-                    platform["platform"],
-                    configuration_id=platform["configuration_id"],
+                    platform[CONF_PLATFORM],
+                    configuration_id=platform[CONF_CONFIG_ID],
                 )
                 lock_file.entries.append(managed_platform)
 
-            managed_platform.desired_config = platform["data"]
-            managed_platform.options = platform.get("options", {})
+            managed_platform.desired_config = platform[CONF_ANSWERS]
+            managed_platform.options = platform.get(CONF_OPTIONS, {})
 
         _LOGGER.info("Setting up")
         for lock_entry in lock_file.entries:
