@@ -143,7 +143,7 @@ class ManagedPlatformConfig:
             self.entry_id = None
 
         if self.entry_id is None:
-            _LOGGER.info("Creating entry %s", self.entry_id)
+            _LOGGER.info("Creating entry for platform %s", self.platform)
             result = await self.setup_platform(config_entries.flow, self.platform, self.desired_config)
             self.entry_id = result.entry_id
 
