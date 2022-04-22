@@ -96,6 +96,7 @@ class ManagedPlatformConfig:
         try:
 
             while True:
+                _LOGGER.debug(result)
                 if "errors" in result and result["errors"]:
                     raise FlowError(
                         f"Flow returned errors while updating component {self.platform} - {result['errors']}"
@@ -109,9 +110,11 @@ class ManagedPlatformConfig:
                 if "result" not in result:
                     last_schema = result["data_schema"]
                     try:
+                        step_answers = data_for_schema(result["data_schema"], answers)
+                        _LOGGER.debug(step_answers)
                         result = await flow_manager.async_configure(
                             flow_id,
-                            data_for_schema(result["data_schema"], answers),
+                            step_answers,
                         )
                     except vol.Error as e:
                         raise FlowError(
