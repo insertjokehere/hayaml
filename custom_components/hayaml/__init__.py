@@ -225,9 +225,10 @@ async def async_setup(hass: HomeAssistant, entry: ConfigEntry) -> bool:
                 _LOGGER.error(str(e))
 
         await lock_file.async_save()
-        return True
 
     if hass.state == CoreState.running:
         await configure(None)
     else:
         hass.bus.async_listen_once(EVENT_HOMEASSISTANT_STARTED, configure)
+
+    return True
