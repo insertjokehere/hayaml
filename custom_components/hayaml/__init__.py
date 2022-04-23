@@ -96,8 +96,9 @@ class ManagedPlatformConfig:
         try:
 
             while True:
-                _LOGGER.debug(result)
-                if "errors" in result and result["errors"]:
+                _LOGGER.debug(f"<- {result}")
+                # Android TV integration returns {"errors": {"base": None}} initially, so we need to be careful of the logic here
+                if "errors" in result and isinstance(result["errors"], dict) and any(result["errors"].values()):
                     raise FlowError(
                         f"Flow returned errors while updating component {self.platform} - {result['errors']}"
                     )
@@ -111,7 +112,7 @@ class ManagedPlatformConfig:
                     last_schema = result["data_schema"]
                     try:
                         step_answers = data_for_schema(result["data_schema"], answers)
-                        _LOGGER.debug(step_answers)
+                        _LOGGER.debug(f"-> {step_answers}")
                         result = await flow_manager.async_configure(
                             flow_id,
                             step_answers,
