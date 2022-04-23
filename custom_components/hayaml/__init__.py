@@ -241,7 +241,7 @@ async def async_setup(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             except FlowError as e:
                 _LOGGER.error(str(e))
 
-        await lock_file.async_save()
+            await lock_file.async_save()
 
     if hass.state == CoreState.running:
         await configure(None)
