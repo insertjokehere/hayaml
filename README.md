@@ -38,20 +38,26 @@ hayaml:
 | --- | --- | --- |
 | `platform` | string | Platform to configure, eg `unifi`, `broadlink`. Required. |
 | `configuration_id` | string | A unique ID used to keep track of which configurations were added or removed. Doesn't matter what it is, as long as it is unique. Required. |
-| `answers` | dict | Answers to provide when setting up the configuration. If these change, the integration will be removed and recreated with the new options. See [below](#answers) for tips on figuring out the required values for your integration. Required. |
-| `options` | dict | Some integrations allow you to adjust some settings after they are set up (the "Configure" button on the integration list) - set the desired values for these options here. Any value not set will be left unchanged. Optional. |
+| `answers` | list of dict | Answers to provide for each step when setting up the configuration. If these change, the integration will be removed and recreated with the new options. See [below](#answers) for tips on figuring out the required values for your integration. Required. |
+| `options` | list of dict | Some integrations allow you to adjust some settings after they are set up (the "Configure" button on the integration list) - set the desired values for these options here. Any value not set will be left unchanged. Optional. |
+| `recreate_options` | bool | If set, will recreate the integration if the specified options change - see [below](#options) for why you might want this. Defaults to False |
 
 Hayaml keeps track of which `configuration_id`s it has already created, and what answers were provided when it did so. Once Home Assistant has started, hayaml will check each platform definition in turn and:
 * If the `configuration_id` hasn't been seen before, enable the integration.
 * If the `configuration_id` has been seen before, but with a different configuration, delete the integration and re-enable it with the new config.
+* If the `configuration_id` has been seen before, `options` has changed and `recreate_options` is set, delete the integration and re-enable it.
 * For any `configuration_id`s that are no longer present in the configuration file are deleted.
-* Update the `options` to match (if supported by the integration)
+* Update the `options` if supported by the integration and `options` has changed (or the integration was newly enabled)
 
-### <a name="answers"></a>Finding the right answers
+### <a name="options"></a>Recreating when options change
+
+Some integrations (like Android TV) have fairly complex configuration flows to add or remove features. In this case, you need to know what state the integration is in to write a set of answers to give to the configuration flow to get to your desired config - its easier to delete the integration and start from a known state. If you set `recreate_options`, hayaml will manage this for you.
+
+## <a name="answers"></a>Finding the right answers
 
 Each integration requires a different set of `answers`, and supports different `options`. It can be a little tricky to work out what values are required - I'm trying to figure out a way to document these automatically, but in the mean time, try these:
 
-#### Read the code
+### Read the code
 
 The rules for setting up an integration are defined in the `config_flow.py` file for the component. Look for a class that subclasses `ConfigFlow`, and find its `async_step_user` function. `async_step_user` will make calls to `async_show_form` (possibly via other functions) with a schema to ask for input from the user. Keep in mind that the setup process might involve multiple steps - find the schema for each step and merge the fields together to come up with the complete list of answers to provide.
 
@@ -81,7 +87,7 @@ Similarly, it provides lots of [options](https://github.com/home-assistant/core/
 * `allow_bandwidth_sensors`
 * `allow_uptime_sensors`
 
-#### Try it and see
+### Try it and see
 
 If you are missing a required config option, hayaml will return an error when setting up the integration like:
 

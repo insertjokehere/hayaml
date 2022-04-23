@@ -21,6 +21,7 @@ from .const import (
     CONF_INTEGRATIONS,
     CONF_OPTIONS,
     CONF_PLATFORM,
+    CONF_RECREATE_OPTIONS,
     DOMAIN,
 )
 
@@ -33,8 +34,9 @@ CONFIG_SCHEMA = vol.Schema(
                         {
                             vol.Required(CONF_PLATFORM): str,
                             vol.Required(CONF_CONFIG_ID): str,
-                            vol.Required(CONF_ANSWERS): dict,
-                            CONF_OPTIONS: dict,
+                            vol.Required(CONF_ANSWERS): [dict],
+                            vol.Required(CONF_RECREATE_OPTIONS, default=False): bool,
+                            CONF_OPTIONS: [dict],
                         }
                     )
                 ],
@@ -71,15 +73,20 @@ class ManagedPlatformConfig:
         entry_id=None,
         configuration_id=None,
         last_config=None,
-        options=None,
+        last_options=None,
+        options_needs_recreate=False,
     ):
         self.hass = hass
         self.entry_id = entry_id  # The entry ID that HASS knows this config by. None if it hasn't been set up yet
         self.configuration_id = configuration_id  # The ID in the configuration file, so we can track what platforms the user wants us to add/remove/reconfigure
         self.last_config = last_config  # The last configuration we applied
+        self.last_options = last_options  # The last options we applied
         self.platform = platform  # Name of the platform
-        self.desired_config = None  # The config the user wants the platform to have
-        self.options = options
+        self.options_needs_recreate = (
+            options_needs_recreate  # Do we need to recreate the integration if the options change
+        )
+        self.desired_config = None  # The config the user wants the integration to have
+        self.desired_options = None  # The optons the user wants the integration to have
 
     def save(self):
         return {
@@ -87,15 +94,15 @@ class ManagedPlatformConfig:
             "entry_id": self.entry_id,
             "configuration_id": self.configuration_id,
             "last_config": self.last_config,
-            "options": self.options,
+            "last_options": self.last_options,
         }
 
-    async def setup_platform(self, flow_manager: FlowManager, flow, answers):
-        result = await flow_manager.async_init(flow, context={"source": "user"})
+    async def run_flow(self, flow_manager: FlowManager, flow: str, answers_list: list[dict]):
+        result = await flow_manager.async_init(flow, context={"source": "user", "show_advanced_options": True})
         flow_id = result["flow_id"]
         try:
 
-            while True:
+            for answers in answers_list:
                 _LOGGER.debug(f"<- {result}")
                 # Android TV integration returns {"errors": {"base": None}} initially, so we need to be careful of the logic here
                 if "errors" in result and isinstance(result["errors"], dict) and any(result["errors"].values()):
@@ -148,19 +155,24 @@ class ManagedPlatformConfig:
 
         if self.entry_id is None:
             _LOGGER.info("Creating entry for platform %s", self.platform)
-            result = await self.setup_platform(config_entries.flow, self.platform, self.desired_config)
+            result = await self.run_flow(config_entries.flow, self.platform, self.desired_config)
             self.entry_id = result.entry_id
 
-        elif self.desired_config != self.last_config:
+        elif self.desired_config != self.last_config or (
+            self.options_needs_recreate and self.desired_options != self.last_options
+        ):
             _LOGGER.info("Recreating entry %s", self.entry_id)
             await self.delete_platform()
-            result = await self.setup_platform(config_entries.flow, self.platform, self.desired_config)
+            result = await self.run_flow(config_entries.flow, self.platform, self.desired_config)
+            self.last_options = None
             self.entry_id = result.entry_id
 
         self.last_config = self.desired_config
-        if self.options:
+        if self.desired_options != self.last_options:
+            _LOGGER.info("Configuring entry %s", self.entry_id)
             try:
-                await self.setup_platform(config_entries.options, self.entry_id, self.options)
+                await self.run_flow(config_entries.options, self.entry_id, self.desired_options)
+                self.last_options = self.desired_options
             except UnknownHandler as _:
                 _LOGGER.warning("Platform %s does not support options", self.platform)
 
@@ -219,7 +231,8 @@ async def async_setup(hass: HomeAssistant, entry: ConfigEntry) -> bool:
                 lock_file.entries.append(managed_platform)
 
             managed_platform.desired_config = platform[CONF_ANSWERS]
-            managed_platform.options = platform.get(CONF_OPTIONS, {})
+            managed_platform.desired_options = platform.get(CONF_OPTIONS, None)
+            managed_platform.options_needs_recreate = platform[CONF_RECREATE_OPTIONS]
 
         _LOGGER.info("Setting up")
         for lock_entry in lock_file.entries:
