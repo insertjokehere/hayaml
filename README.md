@@ -59,7 +59,7 @@ Each integration requires a different set of `answers`, and supports different `
 
 ### Read the code
 
-The rules for setting up an integration are defined in the `config_flow.py` file for the component. Look for a class that subclasses `ConfigFlow`, and find its `async_step_user` function. `async_step_user` will make calls to `async_show_form` (possibly via other functions) with a schema to ask for input from the user. Keep in mind that the setup process might involve multiple steps - find the schema for each step and merge the fields together to come up with the complete list of answers to provide.
+The rules for setting up an integration are defined in the `config_flow.py` file for the component. Look for a class that subclasses `ConfigFlow`, and find its `async_step_user` function. `async_step_user` will make calls to `async_show_form` (possibly via other functions) with a schema to ask for input from the user. Keep in mind that the setup process might involve multiple steps - find the schema for each step and add an entry for each step.
 
 Options can be found in a similar process by looking for a class that subclasses `OptionsFlow`, and following the logic from its `async_step_init` function.
 
@@ -87,6 +87,10 @@ Similarly, it provides lots of [options](https://github.com/home-assistant/core/
 * `allow_bandwidth_sensors`
 * `allow_uptime_sensors`
 
+### Use the debug tools
+
+Use the network tab of your browsers' developer tools to inspect the network requests being made while you set up the integration manually - the data being sent in the request is the answers for that step.
+
 ### Try it and see
 
 If you are missing a required config option, hayaml will return an error when setting up the integration like:
@@ -102,3 +106,116 @@ This _might_ give you some hints about what values you are missing
 ### `Integration <X> already configured for given parameters, but not present in lock file`
 
 This usually indicates that you've set up an integration through the Home Assistant dashboard, and are now trying to create it again using hayaml. Delete the integration through the UI and try again.
+
+## Examples
+
+### Android TV
+
+```yaml
+- platform: androidtv
+  configuration_id: media_room_tv
+  recreate_options: true
+  answers:
+    - host: 192.168.1.1
+      device_class: androidtv
+      port: 5555
+      adbkey: "/var/secrets/adbkey/adbkey"
+      name: "Media Room TV"
+  options:
+    - apps: NewApp
+    - app_name: Netflix
+      app_id: com.netflix.ninja
+    - apps: NewApp
+    - app_name: Steam Link
+      app_id: com.valvesoftware.steamlink
+    - apps: NewApp
+    - app_name: Home
+      app_id: com.google.android.leanbacklauncher
+    - exclude_unnamed_apps: true
+      get_sources: true
+      screencap: true
+      turn_off_command: "input keyevent 223"
+      turn_on_command: "input keyevent 26"
+```
+
+### Broadlink
+
+```yaml
+- platform: "broadlink"
+  configuration_id: broadlink_146
+  answers:
+    - host: "192.168.3.146"
+    - name: "Office Broadlink"
+```
+
+### CO2 Signal
+
+```yaml
+- platform: co2signal
+  configuration_id: co2signal
+  answers:
+    - api_key: !secret CO2_SIGNAL_API_KEY
+      location: Specify country code
+    - country_code: NZ
+```
+
+### ESPHome
+
+```yaml
+- configuration_id: esphome-192.168.3.148
+  platform: esphome
+  answers:
+    - host: 192.168.3.148
+      port: 6053
+    - password: !secret 'ESPHOME_PASSWORD'
+```
+
+### Google Travel Time
+
+```yaml
+- platform: google_travel_time
+  configuration_id: google_travel_time_work
+  answers:
+    - name: "Travel Time to Work"
+      api_key: !secret GAPPS_API_KEY
+      origin: "place_id:..."
+      destination: "place_id:..."
+  options:
+    - mode: driving
+      units: metric
+```
+
+### OpenWeatherMap
+
+```yaml
+- platform: openweathermap
+  configuration_id: openweathermap
+  answers:
+    - name: Weather
+      latitude: ...
+      longitude: ...
+      mode: "onecall_hourly"
+      language: "en"
+      api_key: !secret OPENWEATHERMAP_KEY
+  options:
+    - mode: "onecall_hourly"
+      language: "en"
+```
+
+### Unifi
+
+```yaml
+- platform: "unifi"
+  configuration_id: "unifi"
+  answers:
+    - host: unifi
+      username: homeassistant
+      password: !secret UNIFI_PASSWORD
+      port: 443
+      verify_ssl: true
+  options:
+    - ssid_filter:
+        - MyWiFi
+    - {}
+    - {}
+```
