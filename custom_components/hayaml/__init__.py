@@ -138,6 +138,9 @@ class ManagedPlatformConfig:
                 pass
             raise
 
+        if "errors" in result and isinstance(result["errors"], dict) and any(result["errors"].values()):
+            raise FlowError(f"Flow returned errors while updating component {self.platform} - {result['errors']}")
+
         return result["result"]
 
     async def delete_platform(self):
