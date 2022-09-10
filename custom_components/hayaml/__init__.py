@@ -46,7 +46,7 @@ CONFIG_SCHEMA = vol.Schema(
     extra=vol.ALLOW_EXTRA,
 )
 
-SERVICE_CONFIGURE_SCHEMA = vol.Schema()
+SERVICE_CONFIGURE_SCHEMA = vol.Schema({})
 
 _LOGGER = logging.getLogger(__name__)
 
