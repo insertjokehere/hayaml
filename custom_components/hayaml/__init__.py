@@ -46,6 +46,8 @@ CONFIG_SCHEMA = vol.Schema(
     extra=vol.ALLOW_EXTRA,
 )
 
+SERVICE_CONFIGURE_SCHEMA = vol.Schema()
+
 _LOGGER = logging.getLogger(__name__)
 
 
@@ -245,6 +247,8 @@ async def async_setup(hass: HomeAssistant, entry: ConfigEntry) -> bool:
                 _LOGGER.error(str(e))
 
             await lock_file.async_save()
+
+    hass.services.async_register(DOMAIN, "configure", configure, SERVICE_CONFIGURE_SCHEMA)
 
     if hass.state == CoreState.running:
         await configure(None)

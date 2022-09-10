@@ -1,0 +1,3 @@
+configure:
+  name: Configure
+  description: Trigger a configuration
